@@ -80,8 +80,9 @@ class GalleryLikesController extends Controller
             $temp['likeData'] = date('M d Y', strtotime($item['created_at']));
             array_push($data, $temp);
             if ($item['readstatus'] == 0) {
-                $like = new GalleryLikes();
-                $like->setTrueReadstatus($item['id']);
+                $like = GalkeryLikes::find($item['id']);
+                $like-setReadstatus(1);
+                $like->save();
             }
             $temp = [];
         }
