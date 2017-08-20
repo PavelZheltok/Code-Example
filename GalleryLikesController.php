@@ -2,14 +2,14 @@
 
 namespace App\Http\Controllers\Frontend;
 
-use Illuminate\Http\Request;
-use App\Http\Requests;
-use App\Http\Controllers\Controller;
-use DB,View,Session,Validator,Input,Redirect,Hash,Mail,Config,Auth;
-use App\User;
 use App\Galleries;
 use App\GalleryLikes;
 use App\Http\Controllers\Api\ApiController;
+use App\Http\Controllers\Controller;
+use App\Http\Requests;
+use App\User;
+use DB,View,Session,Validator,Input,Redirect,Hash,Mail,Config,Auth;
+use Illuminate\Http\Request;
 
 class GalleryLikesController extends Controller
 {
@@ -28,13 +28,37 @@ class GalleryLikesController extends Controller
      */
     public function index()
     {
-        $user_arr = Auth::user();
-        $allUserPhotosId  =$this->getAllUserPhotos($user_arr->id);
-        $data = $this->getLikesDataByUserPhotos($allUserPhotosId,0,$this->take);
+        $userArr = Auth::user();
+        $allUserPhotosId  = $this->getAllUserPhotos($userArr->id);
+        $data = $this->getLikesDataByUserPhotos($allUserPhotosId, 0, $this->take);
         return view('frontend.profile.likes')
-            ->with('oldLikes',$data['oldLikesData'])
-            ->with('newLikes',$data['newLikesData'])
-            ->with('user_arr',$user_arr);
+            ->with('oldLikes', $data['oldLikesData'])
+            ->with('newLikes', $data['newLikesData'])
+            ->with('user_arr', $userArr);
+    }
+
+    /**
+    *Load more new likes
+    *
+    *@param int $take
+    *
+    *@return Array
+    */
+    public function getMoreNewLikes($skip)
+    {
+        return $this->getMoreLikes(0, $skip, $this->take);
+    }
+
+    /**
+    *Load more old likes
+    *
+    *@param int $take
+    *
+    *@return Array
+    */
+    public function getMoreOldLikes($skip)
+    {
+        return $this->getMoreLikes(1, $skip, $this->take);
     }
 
    /**
@@ -53,13 +77,13 @@ class GalleryLikesController extends Controller
             $temp['user']->profile_pic = ApiController::getPhotoFile('users/thumbnail/'.$temp['user']->profile_pic);
             $temp['photo'] = Galleries::find($item['gallery_id']);
             $temp['photo']->filename = ApiController::getPhotoFile('galleries/thumbnail/'.$temp['photo']->filename);
-            $temp['likeData'] = date('M d Y',strtotime($item['created_at']));
-            array_push($data,$temp);
+            $temp['likeData'] = date('M d Y', strtotime($item['created_at']));
+            array_push($data, $temp);
             if ($item['readstatus'] == 0) {
                 $like = new GalleryLikes();
-                $like->setReadstatus($item['id']);
+                $like->setTrueReadstatus($item['id']);
             }
-            $temp =[];
+            $temp = [];
         }
         return $data;
     }
@@ -71,11 +95,9 @@ class GalleryLikesController extends Controller
     *
     *@return Galleries[]
     */
-    public function getAllUserPhotos($userId)
+    private function getAllUserPhotos($userId)
     {
-        $galleries = new Galleries();
-        $allUserPhotosId = $galleries->getAllPhotoIdByUserId($userId);
-        return $allUserPhotosId;
+        return (new Galleries())->getAllPhotoIdByUserId($userId);
     }
 
     /**
@@ -87,16 +109,13 @@ class GalleryLikesController extends Controller
     *
     *@return Array with old and new likes
     */
-    public function getLikesDataByUserPhotos($allUserPhotosId,$skip=null,$take=null)
+    private function getLikesDataByUserPhotos($allUserPhotosId,$skip = null,$take = null)
     {
-        $galleryLikes = new GalleryLikes();
-        $photosWithNewLikes = $galleryLikes->getLikesByPhotos($allUserPhotosId,0,$skip,$take);
-        $photosWithOldLikes = $galleryLikes->getLikesByPhotos($allUserPhotosId,1,$skip,$take);
-        $newLikesData = $this->getInfoByPhotoLikeItem($photosWithNewLikes);
-        $oldLikesData = $this->getInfoByPhotoLikeItem($photosWithOldLikes);
+        $photosWithNewLikes = (new GalleryLikes())->getLikesByPhotos($allUserPhotosId, 0, $skip, $take);
+        $photosWithOldLikes = (new GalleryLikes())->getLikesByPhotos($allUserPhotosId, 1, $skip, $take);
         return [
-            'oldLikesData' => $oldLikesData,
-            'newLikesData' => $newLikesData,
+            'oldLikesData' => getInfoByPhotoLikeItem($photosWithOldLikes),
+            'newLikesData' => $this->getInfoByPhotoLikeItem($photosWithNewLikes),
         ];
     }
 
@@ -109,40 +128,13 @@ class GalleryLikesController extends Controller
     *
     *@return Array
     */
-    public function getMoreLikes($readstatus,$skip,$take)
+    private function getMoreLikes($readstatus,$skip,$take)
     {
         $allUserPhotosId  = $this->getAllUserPhotos(Auth::user()->id);
-        $galleryLikes = new GalleryLikes();
-        $photosWithLikes = $galleryLikes->getLikesByPhotos($allUserPhotosId,$readstatus,$skip,$take);
+        $photosWithLikes = (new GalleryLikes())->getLikesByPhotos($allUserPhotosId, $readstatus, $skip, $take);
         $likesData = $this->getInfoByPhotoLikeItem($photosWithLikes);
         return $likesData;
     }
 
-    /**
-    *Load more new likes
-    *
-    *@param int $take
-    *
-    *@return Array
-    */
-    public function getMoreNewLikes($skip)
-    {
-        $take = $this->take;
-        $newLikesData = $this->getMoreLikes(0,$skip,$take);
-        return $newLikesData;
-    }
-
-    /**
-    *Load more old likes
-    *
-    *@param int $take
-    *
-    *@return Array
-    */
-    public function getMoreOldLikes($skip)
-    {
-        $take = $this->take;
-        $oldLikesData = $this->getMoreLikes(1,$skip,$take);
-        return $oldLikesData;
-    }
+    
 }
